@@ -2,82 +2,74 @@
 #include <AMReX_Print.H>
 #include <AMReX_MultiFab.H>
 
+// Inputs
+#include <AMReX_ParmParse.H>
+
 // Diagnostics
 #include <AMReX_PlotFileUtil.H>
 
-/*
- * MultiFabs
- * C++ class for operating on and storing on multidimensional data
- * "fancy 2D or 3D vector/matrix"
- * AMReX can automatically parallize operations on data in the multifab -> easy syntax
- * from https://www.youtube.com/watch?v=498VdW2cNB8 and https://amrex-codes.github.io/amrex/tutorials_html/MultiFab.html#multifab-tutorial
- */
 
 int main (int argc, char *argv[]) {
   amrex::Initialize(argc, argv);
   {
-    amrex::Print() << "Hello world from AMReX version " << amrex::Version() << "\n";
+    //************************************
+    // Declare simulation parameters
+    //************************************
 
-    // define a MultiFab
-    // Need four elements - 
-    //  1. ba - a BoxArray - list of boxes that cover our domain
-    //  2. dm - a DistributionMapping - maps each box to an MPI process
-    //  3. ncomp - number of components - number of data components to store in MultiFab (i.e if storing temperature and pressure, would be 2)
-    //  4. ngrow - number of layers of ghost cells around the boundary (depends on application, use zero here)
+    // number of cells on each side of the domain
+    int n_cell;
 
-    int ncomp = 1;
-    int ngrow = 0;
-    int ncell = 32;
-    int max_grid_size = 16;
+    // size of each box (or grid)
+    int max_grid_size;
+
+    // total steps in simulation
+    int nsteps;
+
+    // how often to write a plotfile
+    int plot_int;
     
-    // Define box array - need to define some aspects of the domain
-    amrex::IntVect dom_lo(0,0,0);
-    amrex::IntVect dom_hi(ncell-1, ncell-1, ncell-1);
+    // timestep
+    amrex::Real dt;
 
-    amrex::Box domain(dom_lo, dom_hi);
-    amrex::BoxArray ba(domain);
-    
-    // Define maximum number of cells in each direction per MPI process
-    ba.maxSize(max_grid_size);
+    //************************************
+    // Read parameter values from input data
+    //************************************
+    {
+      // ParmParse is a way of reading inputs from the inputs file
+      // pp.get means we require the inputs file to have it
+      // pp.query measn we optionally need the inputs file to have it - but we must supply a default
+      amrex::ParmParse pp;
 
-    // Use default distribution mapping
-    amrex::DistributionMapping dm(ba);
+      // We need to get n_cell from the inputs file - this is the number of cells on each side of a square/cubic domain
+      pp.get("n_cell", n_cell);
+      
+      // The domain is broken up into boxes of size max_grid_size
+      pp.get("max_grid_size", max_grid_size);
 
-    // Create the multifab
-    amrex::MultiFab mf(ba, dm, ncomp, ngrow);
+      // Default nsteps to 10, allow us to set it to something else in the inputs file
+      nsteps = 10;
+      pp.query("nsteps", nsteps);
+      
+      // Default plot_int to -1, allow us to set it to something else in the inputs file
+      // If plot_int < 0 then no plot files will be written
+      plot_int = -1;
+      pp.query("plot_int", plot_int);
 
-    // Add data to the multifab
-    amrex::RealBox real_box({0., 0., 0.}, {1., 1., 1.});
-    amrex::Geometry geom(domain, &real_box);
-    amrex::GpuArray<amrex::Real, 3> dx = geom.CellSizeArray();
-    
-    // Iterate over multifab
-    // Dispatches to each MPI process, only does work on boxes that belong to a given MPI process
-    for (amrex::MFIter mfi(mf); mfi.isValid(); ++mfi) {
-      // find out local box
-      const amrex::Box& bx = mfi.validbox();
-      const amrex::Array4<amrex::Real>& mf_array = mf.array(mfi);
-
-      // parallel for loop over cells/nodes in multifab
-      amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k){
-          
-          // Get cell center coordinates
-          amrex::Real x = (i + 0.5) * dx[0];
-          amrex::Real y = (j + 0.5) * dx[1];
-          amrex::Real z = (k + 0.5) * dx[2];
-          
-          // Fill with data
-          amrex::Real dist_x = x - 0.5;
-          amrex::Real dist_y = y - 0.5;
-          amrex::Real dist_z = z - 0.5;
-          amrex::Real rsquared = (dist_x*dist_x + dist_y*dist_y + dist_z*dist_z) / 0.01;            
-          mf_array(i, j, k) = 1.0 + std::exp(-rsquared);
-      });
+      // time step
+      pp.get("dt", dt);
     }
 
-    // plot the MultiFab
-    WriteSingleLevelPlotfile("plt001", mf, {"comp0"}, geom, 0., 0);
+    amrex::Print() << "Read inputs:\n";
+    amrex::Print() << "    n_cell = " << n_cell << "\n";
+    amrex::Print() << "    max_grid_size = " << max_grid_size << "\n";
+    amrex::Print() << "    nsteps = " << nsteps << "\n";
+    amrex::Print() << "    plot_int = " << plot_int << "\n";
+    amrex::Print() << "    dt = " << dt << "\n";
 
+    //************************************
+    // Simulation setup 
+    //************************************
   }
   amrex::Finalize();
+  return 0;
 }
