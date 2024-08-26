@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Project name and source file language
-project(HelloWorld LANGUAGES C CXX)
+project(amrex3d LANGUAGES C CXX)
 
-add_executable(HelloWorld main.cpp)
+add_executable(amrex3d main.cpp)
 
 if(NOT DEFINED AMReX_ROOT)
   message("-- Download and configure AMReX from Github")
@@ -34,6 +34,6 @@ else ()
   target_link_libraries(AMReX::amrex INTERFACE ${MPI_LIBRARIES})
 endif()
 
-target_link_libraries(HelloWorld PRIVATE AMReX::amrex)
+target_link_libraries(amrex3d PRIVATE AMReX::amrex)
 
 
