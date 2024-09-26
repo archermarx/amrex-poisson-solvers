@@ -1,4 +1,5 @@
 #include <AMReX.H>
+#include <AMReX_ParallelDescriptor.H>
 #include "PoissonProblem.H"
 
 int main (int argc, char *argv[]) {
@@ -12,8 +13,8 @@ int main (int argc, char *argv[]) {
         myprob.compute_norms();
         myprob.write_plotfile();
         auto stop_time = amrex::second() - strt_time;
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        ParallelDescriptor::ReduceRealMax(stop_time, IOProc);
+        const int IOProc = amrex::ParallelDescriptor::IOProcessorNumber();
+        amrex::ParallelDescriptor::ReduceRealMax(stop_time, IOProc);
 
         amrex::Print() << "Run time = " << stop_time << "s" << std::endl;
     }
