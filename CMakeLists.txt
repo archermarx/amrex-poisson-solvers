@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Project name and source file language
-project(amrex3d LANGUAGES C CXX)
+project(amrex-nodal LANGUAGES C CXX CUDA)
 
-add_executable(amrex3d src/main.cpp src/PoissonProblem.cpp src/PoissonProblem_PlotFile.cpp)
+add_executable(amrex-nodal src/main.cpp src/PoissonProblem.cpp src/PoissonProblem_PlotFile.cpp)
 
 if(NOT DEFINED AMReX_ROOT)
   message("-- Download and configure AMReX from Github")
@@ -34,6 +34,6 @@ else ()
   target_link_libraries(AMReX::amrex INTERFACE ${MPI_LIBRARIES})
 endif()
 
-target_link_libraries(amrex3d PRIVATE AMReX::amrex)
+target_link_libraries(amrex-nodal PRIVATE AMReX::amrex)
 
 

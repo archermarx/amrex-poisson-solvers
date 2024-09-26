@@ -2,3 +2,4 @@ build
 Backtrace*
 plt*
 output
+output.log

@@ -13,6 +13,7 @@ PoissonProblem::PoissonProblem () {
 }
 
 void PoissonProblem::solve() {
+    BL_PROFILE("solve()");
     MLNodeTensorLaplacian linop(
         geom, grids, dmap,
         LPInfo().setMaxCoarseningLevel(max_coarsening_level)
@@ -56,6 +57,7 @@ void PoissonProblem::solve() {
 }
 
 void PoissonProblem::compute_norms() const {
+    BL_PROFILE("compute_norms()");
     for (int ilev = 0; ilev <= max_level; ++ilev) {
         amrex::Print() << "Level " << ilev << "\n";
         MultiFab error(solution[ilev].boxArray(), solution[ilev].DistributionMap(), 1, 0);
@@ -97,6 +99,7 @@ void PoissonProblem::read_parameters() {
 }
 
 void PoissonProblem::init_data() {
+    BL_PROFILE("init_data()");
     int nlevels = max_level + 1;
     geom.resize(nlevels);
     grids.resize(nlevels);
