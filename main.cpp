@@ -8,9 +8,10 @@
 // Diagnostics
 #include <AMReX_PlotFileUtil.H>
 
+using namespace amrex;
 
 int main (int argc, char *argv[]) {
-  amrex::Initialize(argc, argv);
+  Initialize(argc, argv);
   {
     //************************************
     // Declare simulation parameters
@@ -29,7 +30,7 @@ int main (int argc, char *argv[]) {
     int plot_int;
     
     // timestep
-    amrex::Real dt;
+    Real dt;
 
     //************************************
     // Read parameter values from input data
@@ -38,7 +39,7 @@ int main (int argc, char *argv[]) {
       // ParmParse is a way of reading inputs from the inputs file
       // pp.get means we require the inputs file to have it
       // pp.query measn we optionally need the inputs file to have it - but we must supply a default
-      amrex::ParmParse pp;
+      ParmParse pp;
 
       // We need to get n_cell from the inputs file - this is the number of cells on each side of a square/cubic domain
       pp.get("n_cell", n_cell);
@@ -59,27 +60,27 @@ int main (int argc, char *argv[]) {
       pp.get("dt", dt);
     }
 
-    amrex::Print() << "Read inputs:\n";
-    amrex::Print() << "    n_cell = " << n_cell << "\n";
-    amrex::Print() << "    max_grid_size = " << max_grid_size << "\n";
-    amrex::Print() << "    nsteps = " << nsteps << "\n";
-    amrex::Print() << "    plot_int = " << plot_int << "\n";
-    amrex::Print() << "    dt = " << dt << "\n";
+    Print() << "Read inputs:\n";
+    Print() << "    n_cell = " << n_cell << "\n";
+    Print() << "    max_grid_size = " << max_grid_size << "\n";
+    Print() << "    nsteps = " << nsteps << "\n";
+    Print() << "    plot_int = " << plot_int << "\n";
+    Print() << "    dt = " << dt << "\n";
 
     //************************************
     // Simulation setup 
     //************************************
 
     // Make BoxArray and Geometry
-    amrex::BoxArray ba;
-    amrex::Geometry geom;
+    BoxArray ba;
+    Geometry geom;
 
     // Define lower and upper indices
-    amrex::IntVect dom_lo(0,0,0);
-    amrex::IntVect dom_hi(n_cell-1, n_cell-1, n_cell-1);
+    IntVect dom_lo(AMREX_D_DECL(0,0,0));
+    IntVect dom_hi(AMREX_D_DECL(n_cell-1, n_cell-1, n_cell-1));
 
     // Make a single box that is the entire domain
-    amrex::Box domain(dom_lo, dom_hi);
+    Box domain(dom_lo, dom_hi);
 
     // Initialize the boxarray "ba" from the single box "domain"
     ba.define(domain);
@@ -88,16 +89,16 @@ int main (int argc, char *argv[]) {
     ba.maxSize(max_grid_size);
 
     // This defines the physical box [0,1] in each direction
-    amrex::RealBox real_box({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0});
+    RealBox real_box({AMREX_D_DECL(0.0, 0.0, 0.0)}, {AMREX_D_DECL(1.0, 1.0, 1.0)});
     
     // Periodic in all directions
-    amrex::Array<int,3> is_periodic{1,1,1};
+    Array<int,AMREX_SPACEDIM> is_periodic{AMREX_D_DECL(1,1,1)};
 
     // This defines a Geometry object
-    geom.define(domain, real_box, amrex::CoordSys::cartesian, is_periodic);
+    geom.define(domain, real_box, CoordSys::cartesian, is_periodic);
 
     // Extract dx from the Geometry object
-    amrex::GpuArray<amrex::Real, 3> dx = geom.CellSizeArray();
+    GpuArray<Real, AMREX_SPACEDIM> dx = geom.CellSizeArray();
 
     // Number of ghost cells for each array
     int Nghost = 1;
@@ -106,30 +107,39 @@ int main (int argc, char *argv[]) {
     int Ncomp = 1;
 
     // How boxes are distributed among MPI processes
-    amrex::DistributionMapping dm(ba);
+    DistributionMapping dm(ba);
 
     // We allocate two multifabs - one stroes the old state, the other the new
-    amrex::MultiFab phi_old(ba, dm, Ncomp, Nghost);
-    amrex::MultiFab phi_new(ba, dm, Ncomp, Nghost);
+    MultiFab phi_old(ba, dm, Ncomp, Nghost);
+    MultiFab phi_new(ba, dm, Ncomp, Nghost);
     
     // time - starting time in the simulation
-    amrex::Real time = 0.0;
+    Real time = 0.0;
 
     //************************************
     // Initialize data loop
     //************************************
     
     // Loop over boxes
-    for (amrex::MFIter mfi(phi_old); mfi.isValid(); ++mfi) {
-      const amrex::Box &bx = mfi.validbox();
-      const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
+    for (MFIter mfi(phi_old); mfi.isValid(); ++mfi) {
+      const Box &bx = mfi.validbox();
+      const Array4<Real>& phiOld = phi_old.array(mfi);
       
       // Set phi = 1 + e^(-(r - 0.5)^2)
-      amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
-        amrex::Real x = (i + 0.5) * dx[0];
-        amrex::Real y = (j + 0.5) * dx[1];
-        amrex::Real z = (k + 0.5) * dx[2];
-        amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5))/0.01;
+      ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+        // Included in all cases
+        Real x = (i + 0.5) * dx[0];
+        Real y = (j + 0.5) * dx[1];
+
+        // Dimension-dependent code
+#if (AMREX_SPACEDIM == 2)
+        Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5))/0.01;
+#elif (AMREX_SPACEDIM == 3)
+        Real z = (k + 0.5) * dx[2];
+        Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5))/0.01;
+#endif
+
+        // Included in all cases
         phiOld(i,j,k) = 1.0 + std::exp(-rsquared);
       });
     }
@@ -139,7 +149,7 @@ int main (int argc, char *argv[]) {
     //************************************
     if (plot_int > 0) {
       int step = 0;
-      const std::string &pltfile = amrex::Concatenate("output/plt", step, 5);
+      const std::string &pltfile = Concatenate("output/plt", step, 5);
       WriteSingleLevelPlotfile(pltfile, phi_old, {"phi"}, geom, time, 0);
     }
 
@@ -151,18 +161,20 @@ int main (int argc, char *argv[]) {
       phi_old.FillBoundary(geom.periodicity());
       
       // new_phi = old_phi + dt * Laplacian(old_phi)
-      for (amrex::MFIter mfi(phi_old); mfi.isValid(); ++mfi) {
-        const amrex::Box& bx = mfi.validbox();
-        const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
-        const amrex::Array4<amrex::Real>& phiNew = phi_new.array(mfi);
+      for (MFIter mfi(phi_old); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.validbox();
+        const Array4<Real>& phiOld = phi_old.array(mfi);
+        const Array4<Real>& phiNew = phi_new.array(mfi);
 
         // Advance the data by dt
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k){
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k){
           
             phiNew(i,j,k) = phiOld(i,j,k) + dt * (
                 (phiOld(i+1,j,k) - 2.*phiOld(i,j,k) + phiOld(i-1,j,k)) / (dx[0]*dx[0])
               + (phiOld(i,j+1,k) - 2.*phiOld(i,j,k) + phiOld(i,j-1,k)) / (dx[1]*dx[1])
+#if (AMREX_SPACEDIM == 3)
               + (phiOld(i,j,k+1) - 2.*phiOld(i,j,k) + phiOld(i,j,k-1)) / (dx[2]*dx[2])
+#endif
             );
         });
       }
@@ -170,18 +182,18 @@ int main (int argc, char *argv[]) {
       time += dt;
 
       // Copy new solution into old solution
-      amrex::MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 0);
+      MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 0);
 
       // Tell the I/O processor to write out what step we're doing
-      amrex::Print() << "Advanced step " << step << "\n";
+      Print() << "Advanced step " << step << "\n";
 
       // Write plotfile of the current data
       if (plot_int > 0 && step%plot_int == 0) {
-        const std::string& pltfile = amrex::Concatenate("output/plt", step, 5);
+        const std::string& pltfile = Concatenate("output/plt", step, 5);
         WriteSingleLevelPlotfile(pltfile, phi_new, {"phi"}, geom, time, step);
       }
     }
   }
-  amrex::Finalize();
+  Finalize();
   return 0;
 }
