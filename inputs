@@ -1,5 +1,2 @@
-dt = 1.0e-5
-n_cell = 64
-max_grid_size = 32
-nsteps = 1000
-plot_int = 20
+n_cell = 128
+max_grid_size = 128

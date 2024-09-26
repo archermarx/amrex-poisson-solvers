@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # Project name and source file language
 project(amrex3d LANGUAGES C CXX)
 
-add_executable(amrex3d main.cpp)
+add_executable(amrex3d src/main.cpp src/PoissonProblem.cpp src/PoissonProblem_PlotFile.cpp)
 
 if(NOT DEFINED AMReX_ROOT)
   message("-- Download and configure AMReX from Github")
